@@ -1,3 +1,7 @@
+# for secret
+.rbenv-vars
+
+# common
 *.rbc
 capybara-*.html
 .rspec
