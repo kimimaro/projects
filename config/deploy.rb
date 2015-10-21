@@ -1,179 +1,100 @@
-# config valid only for current version of Capistrano
-lock '3.4.0'
+# config valid only for Capistrano 3.1
+lock '3.1.0'
 
 set :application, 'projects'
+set :deploy_user, 'deploy'
+
+# setup repo details
+set :scm, :git
 set :repo_url, 'git@github.com:kimimaro/projects.git'
 
-# Default branch is :master
-# ask :branch, `git rev-parse --abbrev-ref HEAD`.chomp
+# setup rvm.
+set :rbenv_type, :user
+set :rbenv_ruby, '2.0.0-p645'
+set :rbenv_prefix, "RBENV_ROOT=#{fetch(:rbenv_path)} RBENV_VERSION=#{fetch(:rbenv_ruby)} #{fetch(:rbenv_path)}/bin/rbenv exec"
+set :rbenv_map_bins, %w{rake gem bundle ruby rails}
 
-# Default deploy_to directory is /var/www/my_app_name
-set :deploy_to, '/var/www/projects'
+# how many old releases do we want to keep
+set :keep_releases, 5
 
-# Default value for :scm is :git
-# set :scm, :git
+# files we want symlinking to specific entries in shared.
+set :linked_files, %w{config/database.yml}
 
-# Default value for :format is :pretty
-# set :format, :pretty
+# dirs we want symlinking to shared
+set :linked_dirs, %w{bin log tmp/pids tmp/cache tmp/sockets vendor/bundle public/system}
 
-# Default value for :log_level is :debug
-# set :log_level, :debug
+# what specs should be run before deployment is allowed to
+# continue, see lib/capistrano/tasks/run_tests.cap
+set :tests, []
 
-# Default value for :pty is false
-# set :pty, true
+# which config files should be copied by deploy:setup_config
+# see documentation in lib/capistrano/tasks/setup_config.cap
+# for details of operations
+set(:config_files, %w(
+  nginx.conf
+  database.example.yml
+  log_rotation
+  monit
+  unicorn.rb
+  unicorn_init.sh
+))
 
-# Default value for :linked_files is []
-# set :linked_files, fetch(:linked_files, []).push('config/database.yml', 'config/secrets.yml')
+# which config files should be made executable after copying
+# by deploy:setup_config
+set(:executable_config_files, %w(
+  unicorn_init.sh
+))
 
-# Default value for linked_dirs is []
-# set :linked_dirs, fetch(:linked_dirs, []).push('log', 'tmp/pids', 'tmp/cache', 'tmp/sockets', 'vendor/bundle', 'public/system')
+# files which need to be symlinked to other parts of the
+# filesystem. For example nginx virtualhosts, log rotation
+# init scripts etc.
+set(:symlinks, [
+  {
+    source: "nginx.conf",
+    link: "/etc/nginx/sites-enabled/#{fetch(:full_app_name)}"
+  },
+  {
+    source: "unicorn_init.sh",
+    link: "/etc/init.d/unicorn_#{fetch(:full_app_name)}"
+  },
+  {
+    source: "log_rotation",
+   link: "/etc/logrotate.d/#{fetch(:full_app_name)}"
+  },
+  {
+    source: "monit",
+    link: "/etc/monit/conf.d/#{fetch(:full_app_name)}.conf"
+  }
+])
 
-# Default value for default_env is {}
-# set :default_env, { path: "/opt/ruby/bin:$PATH" }
 
-# Default value for keep_releases is 5
-# set :keep_releases, 5
-
-set :migrate_target,  :current
-set :ssh_options,     { :forward_agent => true }
-set :rails_env,       "production"
-set :normalize_asset_timestamps, false
-
-set :user,            "deploy"
-set :group,           "deploy"
-set :use_sudo,        false
-
-role :web,    "128.199.81.231"	# TODO: Kimi is it right?
-role :app,    "128.199.81.231"
-role :db,     "128.199.81.231", :primary => true
-
-set(:latest_release)  { fetch(:current_path) }
-set(:release_path)    { fetch(:current_path) }
-set(:current_release) { fetch(:current_path) }
-
-set(:current_revision)  { capture("cd #{current_path}; git rev-parse --short HEAD").strip }
-set(:latest_revision)   { capture("cd #{current_path}; git rev-parse --short HEAD").strip }
-set(:previous_revision) { capture("cd #{current_path}; git rev-parse --short HEAD@{1}").strip }
-
-# set environments
-default_environment["RAILS_ENV"] = 'production'
-
-# Use our ruby-1.9.2-p290@my_site gemset
-default_environment["PATH"]         = "--"
-default_environment["GEM_HOME"]     = "--"
-default_environment["GEM_PATH"]     = "--"
-default_environment["RUBY_VERSION"] = "ruby-2.0.0-p645"
-
-default_run_options[:shell] = 'bash'
+# this:
+# http://www.capistranorb.com/documentation/getting-started/flow/
+# is worth reading for a quick overview of what tasks are called
+# and when for `cap stage deploy`
 
 namespace :deploy do
+  # make sure we're deploying what we think we're deploying
+  before :deploy, "deploy:check_revision"
+  # only allow a deploy with passing tests to deployed
+  before :deploy, "deploy:run_tests"
+  # compile assets locally then rsync
+  after 'deploy:symlink:shared', 'deploy:compile_assets_locally'
+  after :finishing, 'deploy:cleanup'
 
-  # after :restart, :clear_cache do
-	 # on roles(:web), in: :groups, limit: 3, wait: 10 do
-	 #   # Here we can do anything such as:
-	 #   # within release_path do
-	 #   #   execute :rake, 'cache:clear'
-	 #   # end
-	 # end
-  # end
+  # remove the default nginx configuration as it will tend
+  # to conflict with our configs.
+  before 'deploy:setup_config', 'nginx:remove_default_vhost'
 
-  desc "Deploy your application"
-  task :default do
-    update
-    restart
-  end
+  # reload nginx to it will pick up any modified vhosts from
+  # setup_config
+  after 'deploy:setup_config', 'nginx:reload'
 
-  desc "Setup your git-based deployment app"
-  task :setup, :except => { :no_release => true } do
-    dirs = [deploy_to, shared_path]
-    dirs += shared_children.map { |d| File.join(shared_path, d) }
-    run "#{try_sudo} mkdir -p #{dirs.join(' ')} && #{try_sudo} chmod g+w #{dirs.join(' ')}"
-    run "git clone #{repository} #{current_path}"
-  end
+  # Restart monit so it will pick up any monit configurations
+  # we've added
+  after 'deploy:setup_config', 'monit:restart'
 
-  task :cold do
-    update
-    migrate
-  end
-
-  task :update do
-    transaction do
-      update_code
-    end
-  end
-
-  desc "Update the deployed code."
-  task :update_code, :except => { :no_release => true } do
-    run "cd #{current_path}; git fetch origin; git reset --hard #{branch}"
-    finalize_update
-  end
-
-  desc "Update the database (overwritten to avoid symlink)"
-  task :migrations do
-    transaction do
-      update_code
-    end
-    migrate
-    restart
-  end
-
-  task :finalize_update, :except => { :no_release => true } do
-    run "chmod -R g+w #{latest_release}" if fetch(:group_writable, true)
-
-    # mkdir -p is making sure that the directories are there for some SCM's that don't
-    # save empty folders
-    run <<-CMD
-      rm -rf #{latest_release}/log #{latest_release}/public/system #{latest_release}/tmp/pids &&
-      mkdir -p #{latest_release}/public &&
-      mkdir -p #{latest_release}/tmp &&
-      ln -s #{shared_path}/log #{latest_release}/log &&
-      ln -s #{shared_path}/system #{latest_release}/public/system &&
-      ln -s #{shared_path}/pids #{latest_release}/tmp/pids &&
-      ln -sf #{shared_path}/database.yml #{latest_release}/config/database.yml
-    CMD
-
-    if fetch(:normalize_asset_timestamps, true)
-      stamp = Time.now.utc.strftime("%Y%m%d%H%M.%S")
-      asset_paths = fetch(:public_children, %w(images stylesheets javascripts)).map { |p| "#{latest_release}/public/#{p}" }.join(" ")
-      run "find #{asset_paths} -exec touch -t #{stamp} {} ';'; true", :env => { "TZ" => "UTC" }
-    end
-  end
-
-  desc "Zero-downtime restart of Unicorn"
-  task :restart, :except => { :no_release => true } do
-    run "kill -s USR2 `cat /tmp/unicorn.my_site.pid`"
-  end
-
-  desc "Start unicorn"
-  task :start, :except => { :no_release => true } do
-    run "cd #{current_path} ; bundle exec unicorn_rails -c config/unicorn.rb -D"
-  end
-
-  desc "Stop unicorn"
-  task :stop, :except => { :no_release => true } do
-    run "kill -s QUIT `cat /tmp/unicorn.my_site.pid`"
-  end
-
-  namespace :rollback do
-    desc "Moves the repo back to the previous version of HEAD"
-    task :repo, :except => { :no_release => true } do
-      set :branch, "HEAD@{1}"
-      deploy.default
-    end
-
-    desc "Rewrite reflog so HEAD@{1} will continue to point to at the next previous release."
-    task :cleanup, :except => { :no_release => true } do
-      run "cd #{current_path}; git reflog delete --rewrite HEAD@{1}; git reflog delete --rewrite HEAD@{1}"
-    end
-
-    desc "Rolls back to the previously deployed version."
-    task :default do
-      rollback.repo
-      rollback.cleanup
-    end
-  end
-end
-
-def run_rake(cmd)
-  run "cd #{current_path}; #{rake} #{cmd}"
+  # As of Capistrano 3.1, the `deploy:restart` task is not called
+  # automatically.
+  after 'deploy:publishing', 'deploy:restart'
 end
