@@ -36,6 +36,7 @@ set :linked_dirs, %w{bin log tmp/pids tmp/cache tmp/sockets vendor/bundle public
 # and when for `cap stage deploy`
 
 namespace :deploy do
+  after :updated, "assets:precompile"
   after :finishing, 'deploy:cleanup'
   
   # # make sure we're deploying what we think we're deploying
@@ -61,4 +62,23 @@ namespace :deploy do
   # # As of Capistrano 3.1, the `deploy:restart` task is not called
   # # automatically.
   # after 'deploy:publishing', 'deploy:restart'
+end
+
+# Updated to work with Capistrano 3 and Rails 4; compiles assets in given stage in order
+# to use settings for that stage ... rm assets when we're done
+namespace :assets do
+  desc "Precompile assets locally and then rsync to web servers"
+  task :precompile do
+    on roles(:web) do
+      rsync_host = host.to_s # this needs to be done outside run_locally in order for host to exist
+      run_locally do
+        with rails_env: fetch(:stage) do
+          execute :bundle, "exec rake assets:precompile"
+        end
+        execute "rsync -av --delete ./public/assets/ #{fetch(:user)}@#{rsync_host}:#{shared_path}/public/assets/"
+        execute "rm -rf public/assets"
+        # execute "rm -rf tmp/cache/assets" # in case you are not seeing changes
+      end
+    end
+  end
 end
