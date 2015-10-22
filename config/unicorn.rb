@@ -5,9 +5,15 @@ env = ENV["RAILS_ENV"] || "development"
 # documentation.
 worker_processes 4
 
+# app settings
+app_dir = File.expand_path("../..", __FILE__)
+app_name = "projects"
+pid_path = "#{app_dir}/tmp/pids/unicorn.#{app_name}.pid"
+sock_path = "#{app_dir}/tmp/sockets/unicorn.#{app_name}.sock"
+
 # listen on both a Unix domain socket and a TCP port,
 # we use a shorter backlog for quicker failover when busy
-listen "/tmp/sockets/unicorn.sock", :backlog => 64
+listen sock_path, :backlog => 64
 
 # Preload our app for more speed
 preload_app true
@@ -15,13 +21,13 @@ preload_app true
 # nuke workers after 30 seconds instead of 60 seconds (the default)
 timeout 30
 
-pid "/tmp/pids/unicorn.projects.pid"
+pid pid_path
 
 # Production specific settings
 if env == "production"
   # Help ensure your application will always spawn in the symlinked
   # "current" directory that Capistrano sets up.
-  app_dir = File.expand_path("../..", __FILE__)
+  
   working_directory "#{app_dir}/current" # "/var/www/projects/current"
 
   # feel free to point this anywhere accessible on the filesystem
@@ -41,7 +47,7 @@ before_fork do |server, worker|
 
   # Before forking, kill the master process that belongs to the .oldbin PID.
   # This enables 0 downtime deploys.
-  old_pid = "/tmp/unicorn.projects.pid.oldbin"
+  old_pid = "#{pid_path}.oldbin"
   if File.exists?(old_pid) && server.pid != old_pid
     begin
       Process.kill("QUIT", File.read(old_pid).to_i)
