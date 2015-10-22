@@ -1,0 +1,6 @@
+[submodule "theme/startbootstrap-grayscale"]
+	path = theme/startbootstrap-grayscale
+	url = git@github.com:IronSummitMedia/startbootstrap-grayscale.git
+[submodule "theme/startbootstrap-freelancer"]
+	path = theme/startbootstrap-freelancer
+	url = git@github.com:IronSummitMedia/startbootstrap-freelancer.git
