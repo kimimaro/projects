@@ -1,9 +1,0 @@
-I, [2015-10-21T02:39:24.205823 #26779]  INFO -- : Refreshing Gem list
-I, [2015-10-21T02:39:25.650491 #26779]  INFO -- : listening on addr=/home/deploy/ws/github/projects/shared/sockets/unicorn.sock fd=11
-I, [2015-10-21T02:39:25.650680 #26779]  INFO -- : worker=0 spawning...
-I, [2015-10-21T02:39:25.652323 #26779]  INFO -- : worker=1 spawning...
-I, [2015-10-21T02:39:25.654611 #26779]  INFO -- : master process ready
-I, [2015-10-21T02:39:25.653486 #26782]  INFO -- : worker=0 spawned pid=26782
-I, [2015-10-21T02:39:25.663970 #26785]  INFO -- : worker=1 spawned pid=26785
-I, [2015-10-21T02:39:25.671186 #26782]  INFO -- : worker=0 ready
-I, [2015-10-21T02:39:25.672314 #26785]  INFO -- : worker=1 ready

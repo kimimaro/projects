@@ -32,10 +32,10 @@ if env == "production"
 
   # feel free to point this anywhere accessible on the filesystem
   user 'deploy', 'deploy'
-  shared_path = "#{app_dir}/shared"
+  log_path = "#{app_dir}/log"
 
-  stderr_path "#{shared_path}/log/unicorn.stderr.log"
-  stdout_path "#{shared_path}/log/unicorn.stdout.log"
+  stderr_path "#{log_path}/log/unicorn.stderr.log"
+  stdout_path "#{log_path}/log/unicorn.stdout.log"
 end
 
 before_fork do |server, worker|
