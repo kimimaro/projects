@@ -11,7 +11,7 @@ role :db,  %w{deploy@oneboxapp.com}
 set :stage, :production
 set :branch, 'master'
 
-server '128.199.81.231', user: 'deploy', roles: %w{web app db}
+server 'oneboxapp.com', user: 'deploy', roles: %w{web app db}
 
 set :deploy_to, "/home/#{fetch(:deploy_user)}/apps/projects"
 
