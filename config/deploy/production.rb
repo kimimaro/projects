@@ -13,6 +13,8 @@ set :branch, 'master'
 
 server 'oneboxapp.com', user: 'deploy', roles: %w{web app db}
 
+set :assets_roles, [:web, :app]            # Defaults to [:web]
+
 set :deploy_to, "/home/#{fetch(:deploy_user)}/apps/projects"
 
 # dont try and infer something as important as environment from
