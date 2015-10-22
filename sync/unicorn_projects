@@ -17,11 +17,12 @@ USAGE="Usage: $0 <start|stop|restart|upgrade|rotate|force-stop>"
 # app settings
 USER="deploy"
 APP_NAME="projects"
-APP_ROOT="/home/$USER/apps/$APP_NAME"
+APP_ROOT="/home/$USER/apps/$APP_NAME/current"
 ENV="production"
 
 # environment settings
 PATH="/home/$USER/.rbenv/shims:/home/$USER/.rbenv/bin:$PATH"
+# -su: bundle: command not found
 CMD="cd $APP_ROOT && /home/$USER/.rbenv/shims/bundle exec unicorn -c config/unicorn.rb -E $ENV -D"
 PID="$APP_ROOT/tmp/pids/unicorn.$APP_NAME.pid"
 OLD_PID="$PID.oldbin"

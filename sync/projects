@@ -1,13 +1,13 @@
 upstream app {
     # Path to Unicorn SOCK file, as defined previously
-    server unix:/home/deploy/apps/projects/tmp/sockets/unicorn.projects.sock fail_timeout=0;
+    server unix:/home/deploy/apps/projects/current/tmp/sockets/unicorn.projects.sock fail_timeout=0;
 }
 
 server {
     listen 80;
     server_name oneboxapp.com www.oneboxapp.com;
 
-    root /home/deploy/apps/projects/public;
+    root /home/deploy/apps/projects/current/public;
 
     try_files $uri/index.html $uri @app;
 
