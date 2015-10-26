@@ -107,7 +107,7 @@ namespace :deploy do
     sh "scp config/database.yml deploy@oneboxapp.com:/home/deploy/apps/projects/shared/config/database.yml"
   end
 
-  before :deploy, :check_revision
+  before :deploy, "deploy:check_revision"
 
   after :updated, :setup
   after :publishing, :restart
