@@ -50,7 +50,7 @@ group :development do
 	gem 'capistrano-rails', '~> 1.0.0'
 
 	# integrate bundler with capistrano
-	gem 'capistrano-bundler'
+	gem 'capistrano-bundler', '~> 1.1.2'
 
 	# if you are using RBENV
 	gem 'capistrano-rbenv', "~> 2.0"
