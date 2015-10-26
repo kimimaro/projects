@@ -23,11 +23,11 @@ set :rails_env, :production
 
 # number of unicorn workers, this will be reflected in
 # the unicorn.rb and the monit configs
-set :unicorn_worker_count, 4
+# set :unicorn_worker_count, 4
 
 # whether we're using ssl or not, used for building nginx
 # config file
-set :enable_ssl, false
+# set :enable_ssl, false
 
 # Extended Server Syntax
 # ======================
