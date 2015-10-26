@@ -105,7 +105,7 @@ namespace :deploy do
 
   task :setup do
     # need no-passwd ssh to deploy user first!
-    sh "scp config/database.yml deploy@oneboxapp.com:/home/deploy/apps/projects/shared/config/database.yml"
+    sh "scp config/database.yml deploy@oneboxapp.com:#{shared_path}/config/database.yml"
   end
 
   before :deploy, "deploy:check_revision"
