@@ -98,19 +98,30 @@ namespace :deploy do
     task command do
       on roles(:app) do
         execute "/etc/init.d/unicorn_#{fetch(:application)} #{command}"
-        execute "service nginx restart"
+        # execute "service nginx restart"
       end
+    end
+  end
+
+  task :link_db do
+    on roles(:app) do
+      execute "ln -s #{shared_path}/config/database.yml #{release_path}/config/database.yml"
     end
   end
 
   task :setup do
     # need no-passwd ssh to deploy user first!
+    on roles(:app) do
+      execute "mkdir -p #{shared_path}/config"
+    end
     sh "scp config/database.yml deploy@oneboxapp.com:#{shared_path}/config/database.yml"
   end
 
   before :deploy, "deploy:check_revision"
 
-  after :updated, :setup
+  before "deploy:link_db", "deploy:setup"
+  before "deploy:assets:precompile", "deploy:link_db"
+
   after :publishing, :restart
 
   after :restart, :clear_cache do
