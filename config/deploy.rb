@@ -1,6 +1,9 @@
 # config valid only for Capistrano 3.1
 lock '3.1.0'
 
+# to get 'sh' method work
+include Rake::DSL
+
 set :application, 'projects'
 set :repo_url, 'git@github.com:kimimaro/projects.git'
 
@@ -26,7 +29,7 @@ set :bundle_env_variables, {}                                   # this is defaul
 # ask :branch, proc { `git re``v-parse --abbrev-ref HEAD`.chomp }
 
 # Default deploy_to directory is /var/www/my_app
-# set :deploy_to, '/var/www/my_app'
+set :deploy_to, "/var/www/#{fetch(:application)}"
 
 # Default value for :scm is :git
 # set :scm, :git
@@ -53,24 +56,61 @@ set :linked_dirs, %w{bin log bundle tmp/pids tmp/cache tmp/sockets vendor/bundle
 # Default value for keep_releases is 5
 # set :keep_releases, 5
 
-# namespace :unicorn do
-#   task :start, :roles => :app, :except => { :no_release => true } do 
-#     run "cd #{current_path} && #{try_sudo} #{unicorn_binary} -c #{unicorn_config} -E #{rails_env} -D"
-#   end
-#   task :stop, :roles => :app, :except => { :no_release => true } do 
-#     run "#{try_sudo} kill `cat #{unicorn_pid}`"
-#   end
-#   task :graceful_stop, :roles => :app, :except => { :no_release => true } do
-#     run "#{try_sudo} kill -s QUIT `cat #{unicorn_pid}`"
-#   end
-#   task :reload, :roles => :app, :except => { :no_release => true } do
-#     run "#{try_sudo} kill -s USR2 `cat #{unicorn_pid}`"
-#   end
-#   task :restart, :roles => :app, :except => { :no_release => true } do
-#     stop
-#     start
-#   end
-# end
+namespace :unicorn do
+
+  # -> { shared_path.join('bin') }
+  set :unicorn_binary, "/home/deploy/.rbenv/shims/bundle exec unicorn"
+  set :unicorn_config, -> { current_path.join('config/unicorn.rb') }
+
+  # lambda?
+  set :unicorn_pid, -> { shared_path.join("tmp/pids/unicorn.#{fetch(:application)}.pid") }
+
+  desc 'Debug Unicorn variables'
+  task :show_vars do # rake
+    on roles(:app), in: :sequence, wait: 5 do
+      puts <<-EOF.gsub(/^ +/, '')
+
+        rails_env "#{fetch(:rails_env)}"
+        unicorn_binary "#{fetch(:unicorn_binary)}"
+        unicorn_config "#{fetch(:unicorn_config)}"
+        unicorn_pid "#{fetch(:unicorn_pid)}"
+      EOF
+    end
+  end
+
+  desc 'start unicorn'
+  task :start do
+    on roles(:app), in: :sequence, wait: 5 do
+      execute "cd #{current_path} && #{fetch(:unicorn_binary)} -c #{fetch(:unicorn_config)} -E #{fetch(:rails_env)} -D"
+    end
+  end
+
+  task :stop do
+    on roles(:app), in: :sequence, wait: 5 do
+      execute "kill `cat #{fetch(:unicorn_pid)}`"
+    end
+  end
+
+  task :graceful_stop do
+    on roles(:app), in: :sequence, wait: 5 do
+      run "kill -s QUIT `cat #{fetch(:unicorn_pid)}`"
+    end
+  end
+
+  task :reload do
+    on roles(:app), in: :sequence, wait: 5 do
+      run "kill -s USR2 `cat #{fetch(:unicorn_pid)}`"
+    end
+  end
+
+  task :restart do
+    on roles(:app), in: :sequence, wait: 5 do
+      # invoke "unicorn:show_vars"
+      invoke "unicorn:stop"
+      invoke "unicorn:start" 
+    end
+  end
+end
 
 namespace :deploy do
 
@@ -79,6 +119,8 @@ namespace :deploy do
     on roles(:app), in: :sequence, wait: 5 do
       # Your restart mechanism here, for example:
       # execute :touch, release_path.join('tmp/restart.txt')
+
+      invoke "unicorn:restart"
     end
   end
 
@@ -93,15 +135,15 @@ namespace :deploy do
 
   # still need to start nginx first
   # still need to upload unicorn_projects to /etc/init.d path first!
-  %w[start stop restart].each do |command|
-    desc "#{command} unicorn server."
-    task command do
-      on roles(:app) do
-        execute "/etc/init.d/unicorn_#{fetch(:application)} #{command}"
-        # execute "service nginx restart"
-      end
-    end
-  end
+  # %w[start stop restart].each do |command|
+  #   desc "#{command} unicorn server."
+  #   task command do
+  #     on roles(:app) do
+  #       execute "/etc/init.d/unicorn_#{fetch(:application)} #{command}"
+  #       # execute "service nginx restart"
+  #     end
+  #   end
+  # end
 
   task :link_db do
     on roles(:app) do
@@ -113,8 +155,11 @@ namespace :deploy do
     # need no-passwd ssh to deploy user first!
     on roles(:app) do
       execute "mkdir -p #{shared_path}/config"
+
+      # run_locally do
+        sh "scp config/database.yml deploy@oneboxapp.com:#{shared_path}/config/database.yml"
+      # end
     end
-    sh "scp config/database.yml deploy@oneboxapp.com:#{shared_path}/config/database.yml"
   end
 
   before :deploy, "deploy:check_revision"
@@ -123,6 +168,7 @@ namespace :deploy do
   before "deploy:assets:precompile", "deploy:link_db"
 
   after :publishing, :restart
+  after :restart, "unicorn:show_vars"
 
   after :restart, :clear_cache do
     on roles(:web), in: :groups, limit: 3, wait: 10 do
