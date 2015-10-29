@@ -60,10 +60,10 @@ namespace :unicorn do
 
   # -> { shared_path.join('bin') }
   set :unicorn_binary, "/home/deploy/.rbenv/shims/bundle exec unicorn"
-  set :unicorn_config, -> { current_path.join('config/unicorn.rb') }
+  set :unicorn_config, -> { current_path.join('config/unicorn.rb') } # /home/deploy/apps/projects
 
-  # lambda?
-  set :unicorn_pid, -> { shared_path.join("tmp/pids/unicorn.#{fetch(:application)}.pid") }
+  # lambda表达式会影响 shared_path 的值？
+  set :unicorn_pid, -> { shared_path.join("tmp/pids/unicorn.#{fetch(:application)}.pid") } # /home/deploy/apps/projects
 
   desc 'Debug Unicorn variables'
   task :show_vars do # rake
