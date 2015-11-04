@@ -11,7 +11,7 @@ role :db,  %w{deploy@oneboxapp.com}
 set :stage, :production
 set :branch, 'master'
 
-server 'oneboxapp.com', user: 'deploy', roles: %w{web app db}
+# server 'oneboxapp.com', user: 'deploy', roles: %w{web app db}
 
 set :assets_roles, [:web, :app]            # Defaults to [:web]
 

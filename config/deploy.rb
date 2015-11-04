@@ -62,7 +62,7 @@ namespace :unicorn do
   set :unicorn_binary, "/home/deploy/.rbenv/shims/bundle exec unicorn"
   set :unicorn_config, -> { current_path.join('config/unicorn.rb') } # /home/deploy/apps/projects
 
-  # lambda表达式会影响 shared_path 的值？
+  # lambda表达式会影响 shared_path 的值，保证 shared_path 是预期的值
   set :unicorn_pid, -> { shared_path.join("tmp/pids/unicorn.#{fetch(:application)}.pid") } # /home/deploy/apps/projects
 
   desc 'Debug Unicorn variables'
@@ -168,7 +168,7 @@ namespace :deploy do
   before "deploy:assets:precompile", "deploy:link_db"
 
   after :publishing, :restart
-  after :restart, "unicorn:show_vars"
+  # after :restart, "unicorn:show_vars"
 
   after :restart, :clear_cache do
     on roles(:web), in: :groups, limit: 3, wait: 10 do
