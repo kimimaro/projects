@@ -29,7 +29,7 @@ set :bundle_env_variables, {}                                   # this is defaul
 # ask :branch, proc { `git re``v-parse --abbrev-ref HEAD`.chomp }
 
 # Default deploy_to directory is /var/www/my_app
-set :deploy_to, "/var/www/#{fetch(:application)}"
+# set :deploy_to, "/var/www/#{fetch(:application)}"
 
 # Default value for :scm is :git
 # set :scm, :git
@@ -58,23 +58,26 @@ set :linked_dirs, %w{bin log bundle tmp/pids tmp/cache tmp/sockets vendor/bundle
 
 namespace :unicorn do
 
-  # -> { shared_path.join('bin') }
   set :unicorn_binary, "/home/deploy/.rbenv/shims/bundle exec unicorn"
-  set :unicorn_config, -> { current_path.join('config/unicorn.rb') } # /home/deploy/apps/projects
-
-  # lambda表达式会影响 shared_path 的值，保证 shared_path 是预期的值
-  set :unicorn_pid, -> { shared_path.join("tmp/pids/unicorn.#{fetch(:application)}.pid") } # /home/deploy/apps/projects
+  set :unicorn_config, -> { current_path.join('config/unicorn.rb') }
+  set :unicorn_pid, -> { shared_path.join("tmp/pids/unicorn.#{fetch(:application)}.pid") } 
 
   desc 'Debug Unicorn variables'
   task :show_vars do # rake
     on roles(:app), in: :sequence, wait: 5 do
       puts <<-EOF.gsub(/^ +/, '')
 
-        rails_env "#{fetch(:rails_env)}"
-        unicorn_binary "#{fetch(:unicorn_binary)}"
-        unicorn_config "#{fetch(:unicorn_config)}"
-        unicorn_pid "#{fetch(:unicorn_pid)}"
+         rails_env "#{fetch(:rails_env)}"
+         unicorn_binary "#{fetch(:unicorn_binary)}"
+         unicorn_config "#{fetch(:unicorn_config)}"
+         unicorn_pid "#{fetch(:unicorn_pid)}"
       EOF
+    end
+  end
+
+  task :setup do
+    on roles(:app), in: :sequence, wait: 5 do
+      # execute "touch #{fetch(:unicorn_pid)}"
     end
   end
 
@@ -87,25 +90,26 @@ namespace :unicorn do
 
   task :stop do
     on roles(:app), in: :sequence, wait: 5 do
-      execute "kill `cat #{fetch(:unicorn_pid)}`"
+      # execute "kill `cat #{fetch(:unicorn_pid)}`"
+      # if test ! -d /home/deploy/apps/aboutme/releases/20151101040702; then echo "Directory does not exist '/home/deploy/apps/aboutme/releases/20151101040702'" 1>&2; false; fi
+      execute "if test -s #{fetch(:unicorn_pid)}; then kill `cat #{fetch(:unicorn_pid)}`; fi"
     end
   end
 
   task :graceful_stop do
     on roles(:app), in: :sequence, wait: 5 do
-      run "kill -s QUIT `cat #{fetch(:unicorn_pid)}`"
+      execute "if test -s #{fetch(:unicorn_pid)}; then kill -s QUIT `cat #{fetch(:unicorn_pid)}`; fi"
     end
   end
 
   task :reload do
     on roles(:app), in: :sequence, wait: 5 do
-      run "kill -s USR2 `cat #{fetch(:unicorn_pid)}`"
+      execute "if test -s #{fetch(:unicorn_pid)}; then kill -s USR2 `cat #{fetch(:unicorn_pid)}`; fi"
     end
   end
 
   task :restart do
     on roles(:app), in: :sequence, wait: 5 do
-      # invoke "unicorn:show_vars"
       invoke "unicorn:stop"
       invoke "unicorn:start" 
     end
@@ -159,6 +163,8 @@ namespace :deploy do
       # run_locally do
         sh "scp config/database.yml deploy@oneboxapp.com:#{shared_path}/config/database.yml"
       # end
+
+      invoke "unicorn:setup"
     end
   end
 
